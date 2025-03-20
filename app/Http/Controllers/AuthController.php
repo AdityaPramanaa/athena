@@ -3,8 +3,14 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use App\Models\Anggota;
+use App\Models\Pengurus;
 
-class AuthController {
+class AuthController extends Controller
+{
+    // 📌 Pendaftaran Anggota
     public function register(Request $request) {
         $request->validate([
             'nama' => 'required|string',
@@ -26,16 +32,55 @@ class AuthController {
 
         return response()->json(['message' => 'Pendaftaran berhasil, menunggu verifikasi']);
     }
-    
+
+    // 📌 Pendaftaran Pengurus
+    public function registerPengurus(Request $request) {
+        $request->validate([
+            'nama' => 'required|string',
+            'email' => 'required|email|unique:pengurus,email',
+            'password' => 'required|string|min:6',
+            'jabatan' => 'required|string',
+        ]);
+
+        Pengurus::create([
+            'nama' => $request->nama,
+            'email' => $request->email,
+            'password' => Hash::make($request->password), // 🔹 Enkripsi password
+            'jabatan' => $request->jabatan,
+        ]);
+
+        return response()->json(['message' => 'Pengurus berhasil didaftarkan']);
+    }
+
+    // 📌 Login (Anggota & Pengurus)
     public function login(Request $request) {
-        // Login dengan token
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|string',
+        ]);
+
+        $pengurus = Pengurus::where('email', $request->email)->first();
+        
+        if ($pengurus && Hash::check($request->password, $pengurus->password)) {
+            $token = $pengurus->createToken('auth_token')->plainTextToken;
+            return response()->json([
+                'message' => 'Login berhasil',
+                'token' => $token,
+                'user' => $pengurus
+            ]);
+        }
+
+        return response()->json(['error' => 'Email atau password salah'], 401);
     }
-    public function logout(Request $request) {
-        // Logout user
-    }
+
+    // 📌 Ambil Data User
     public function user(Request $request) {
         return response()->json(auth()->user());
     }
+
+    // 📌 Logout
+    public function logout(Request $request) {
+        auth()->user()->tokens()->delete();
+        return response()->json(['message' => 'Logout berhasil']);
+    }
 }
-
-
